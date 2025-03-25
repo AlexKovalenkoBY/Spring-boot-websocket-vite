@@ -5,6 +5,7 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import com.example.websocket.controller.IpHandshakeInterceptor;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -18,9 +19,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Для нативного WebSocket
         registry.addEndpoint("/ws")
+                .addInterceptors(new IpHandshakeInterceptor())
                 .setAllowedOriginPatterns("*");
+    
         
         // Для SockJS (если нужно)
         registry.addEndpoint("/ws/sockjs")
