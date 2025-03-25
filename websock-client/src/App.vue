@@ -45,39 +45,27 @@ export default {
       }
     },
     connectWebSocket() {
-      const socket = new SockJS('http://localhost:8080/ws');
-      this.stompClient = Stomp.over(socket);
+  // const socketUrl = window.location.origin + '/ws';
+  const socketUrl = 'http://localhost:8080/ws';
+  // Явно передаем фабрику для SockJS
+  this.stompClient = Stomp.over(() => new SockJS(socketUrl));
 
-      // Добавляем обработку ошибок подключения
-      this.stompClient.onStompError = (frame) => {
-        console.error('STOMP protocol error:', frame.headers.message);
-      };
-
-      this.stompClient.connect(
-        {},
-        (frame) => {
-          console.log('Connected:', frame);
-          this.stompClient.subscribe('/topic/greetings', (message) => {
-            try {
-              // Проверяем тип содержимого
-              if (message.headers['content-type']?.includes('application/json')) {
-                this.messages.push(JSON.parse(message.body).message);
-              } else {
-                // Обрабатываем обычный текст
-                this.messages.push(message.body);
-              }
-            } catch (error) {
-              console.error('Error parsing message:', error);
-              this.messages.push(`Ошибка: Некорректное сообщение - ${message.body}`);
-            }
-          });
-        },
-        (error) => {
-          console.error('Connection error:', error);
-          setTimeout(this.connectWebSocket, 5000); // Переподключение через 5 сек
-        }
-      );
+  this.stompClient.connect(
+    {},
+    (frame) => {
+      console.log('Connected:', frame);
+      this.stompClient.subscribe('/topic/greetings', (message) => {
+        this.messages.push(message.body);
+        
+      });
     },
+    (error) => {
+      console.error('Connection error:', error);
+      setTimeout(this.connectWebSocket, 5000);
+    }
+  );
+},
+  
   },
   mounted() {
     this.connectWebSocket();

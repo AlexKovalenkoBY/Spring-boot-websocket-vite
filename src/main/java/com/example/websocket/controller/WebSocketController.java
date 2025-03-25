@@ -7,8 +7,8 @@ import org.springframework.stereotype.Controller;
 @Controller
 public class WebSocketController {
 
-    @MessageMapping("/hello") // Получает сообщения от клиента
-    @SendTo("/topic/greetings") // Отправляет сообщения всем подписчикам
+    @MessageMapping("/hello")
+    @SendTo("/topic/greetings")
     public String handleMessage(MessageDTO message) {
         return "Привет, " + message.getMessage() + " от сервера!";
     }
