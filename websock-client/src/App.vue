@@ -1,4 +1,5 @@
 <template>
+  <!-- Шаблон остаётся без изменений -->
   <div>
     <h1>WebSocket Chat</h1>
     <div>
@@ -19,7 +20,7 @@
 </template>
 
 <script>
-import * as Stomp from '@stomp/stompjs';
+import { Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 export default {
@@ -27,42 +28,68 @@ export default {
     return {
       stompClient: null,
       userMessage: '',
-      messages: [], // Массив для хранения полученных сообщений
+      messages: [],
     };
   },
   methods: {
     sendMessage() {
-      if (this.stompClient && this.userMessage.trim() !== '') {
-        // Отправляем сообщение на сервер (Spring Boot обработает его в /app/hello)
-        this.stompClient.send('/app/hello', {}, this.userMessage);
-        this.userMessage = ''; // Очищаем поле ввода
+      if (this.stompClient && this.stompClient.connected) {
+        this.stompClient.send(
+          '/app/hello',
+          {},
+          JSON.stringify({ message: this.userMessage })
+        );
+        this.userMessage = '';
+      } else {
+        console.error('STOMP connection is not established.');
       }
     },
     connectWebSocket() {
-      // Указываем адрес подключения
-      const socket = new SockJS('/ws');
+      const socket = new SockJS('http://localhost:8080/ws');
+      this.stompClient = Stomp.over(socket);
 
-      this.stompClient = Stomp.Stomp.over(socket); // Передаём SockJS объект
+      // Добавляем обработку ошибок подключения
+      this.stompClient.onStompError = (frame) => {
+        console.error('STOMP protocol error:', frame.headers.message);
+      };
 
-      // Подключаемся к серверу
-      this.stompClient.connect({}, (frame) => {
-        console.log('Connected:', frame);
-
-        // Подписываемся на топик
-        this.stompClient.subscribe('/topic/greetings', (message) => {
-          this.messages.push(message.body);
-        });
-      }, (error) => {
-        console.error('Connection error:', error);
-      });
+      this.stompClient.connect(
+        {},
+        (frame) => {
+          console.log('Connected:', frame);
+          this.stompClient.subscribe('/topic/greetings', (message) => {
+            try {
+              // Проверяем тип содержимого
+              if (message.headers['content-type']?.includes('application/json')) {
+                this.messages.push(JSON.parse(message.body).message);
+              } else {
+                // Обрабатываем обычный текст
+                this.messages.push(message.body);
+              }
+            } catch (error) {
+              console.error('Error parsing message:', error);
+              this.messages.push(`Ошибка: Некорректное сообщение - ${message.body}`);
+            }
+          });
+        },
+        (error) => {
+          console.error('Connection error:', error);
+          setTimeout(this.connectWebSocket, 5000); // Переподключение через 5 сек
+        }
+      );
     },
   },
   mounted() {
-    // Подключаем WebSocket при загрузке компонента
     this.connectWebSocket();
+  },
+  beforeUnmount() {
+    if (this.stompClient) {
+      this.stompClient.disconnect();
+    }
   },
 };
 </script>
+
 
 <style>
 h1 {

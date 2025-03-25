@@ -9,8 +9,8 @@ public class WebSocketController {
 
     @MessageMapping("/hello") // Получает сообщения от клиента
     @SendTo("/topic/greetings") // Отправляет сообщения всем подписчикам
-    public String handleMessage(String message) {
-        return "Привет, " + message + " от сервера!";
+    public String handleMessage(MessageDTO message) {
+        return "Привет, " + message.getMessage() + " от сервера!";
     }
 }
 
