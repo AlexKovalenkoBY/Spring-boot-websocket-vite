@@ -8,7 +8,10 @@
         <div>
             <h2>Сообщения:</h2>
             <ul>
-                <li v-for="(msg, index) in messages" :key="index">{{ msg }}</li>
+                <!-- Изменен порядок отображения через reverse() -->
+                <li v-for="(msg, index) in [...messages].reverse()" :key="index">
+                    {{ msg }}
+                </li>
             </ul>
         </div>
     </div>
@@ -27,52 +30,51 @@ export default {
         };
     },
     methods: {
-    sendMessage() {
-        if (this.stompClient && this.stompClient.connected) {
-            this.stompClient.publish({
-                destination: '/app/hello',
-                body: JSON.stringify({ message: this.userMessage }),
-                headers: { 'content-type': 'application/json' }  // Добавьте этот заголовок
+        sendMessage() {
+            if (this.stompClient && this.stompClient.connected) {
+                this.stompClient.publish({
+                    destination: '/app/hello',
+                    body: JSON.stringify({ message: this.userMessage }),
+                    headers: { 'content-type': 'application/json' }
+                });
+                this.userMessage = '';
+            } else {
+                console.error("Connection not established! Trying to reconnect...");
+                this.connectWebSocket();
+                setTimeout(() => this.sendMessage(), 1000);
+            }
+        },
+        connectWebSocket() {
+            this.stompClient = new Client({
+                brokerURL: 'ws://localhost:8080/ws',
+                reconnectDelay: 5000,
+                heartbeatIncoming: 4000,
+                heartbeatOutgoing: 4000,
+                debug: (str) => console.log('STOMP:', str),
+                
+                connectHeaders: {
+                    'accept-version': '1.2',
+                    'heart-beat': '10000,10000'
+                },
+
+                onConnect: (frame) => {
+                    this.isConnected = true;
+                    console.log('Connected:', frame);
+                    this.stompClient.subscribe('/topic/greetings', (message) => {
+                        console.log('Received:', message);
+                        // Новые сообщения добавляются в конец массива
+                        this.messages.push(message.body);
+                    });
+                },
+                onDisconnect: () => {
+                    this.isConnected = false;
+                    console.log("Disconnected");
+                }
             });
-            this.userMessage = '';
-        } else {
-            console.error("Connection not established! Trying to reconnect...");
-            this.connectWebSocket();
-            // Можно добавить задержку перед повторной отправкой
-            setTimeout(() => this.sendMessage(), 1000);
+
+            this.stompClient.activate();
         }
     },
-    connectWebSocket() {
-        this.stompClient = new Client({
-            brokerURL: 'ws://localhost:8080/ws',
-            reconnectDelay: 5000,
-            heartbeatIncoming: 4000,
-            heartbeatOutgoing: 4000,
-            debug: (str) => console.log('STOMP:', str),
-            
-            // Обновленные заголовки
-            connectHeaders: {
-                'accept-version': '1.2',
-                'heart-beat': '10000,10000'
-            },
-
-            onConnect: (frame) => {
-                this.isConnected = true;
-                console.log('Connected:', frame);
-                this.stompClient.subscribe('/topic/greetings', (message) => {
-                    console.log('Received:', message);
-                    this.messages.push(message.body);
-                });
-            },
-            onDisconnect: () => {
-                this.isConnected = false;
-                console.log("Disconnected");
-            }
-        });
-
-        this.stompClient.activate();
-    }
-},
     mounted() {
         this.connectWebSocket();
     },
@@ -83,7 +85,6 @@ export default {
     }
 };
 </script>
-
 
 
 <style>
